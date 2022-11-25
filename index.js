@@ -105,6 +105,13 @@ async function run() {
       const result = await productsCollection.find(query).toArray();
       res.send(result);
     });
+
+    app.get("/products/category/:id", verifyJWT, async (req, res) => {
+      const id = req.params.id;
+      const query = { category: id };
+      const result = await productsCollection.find(query).toArray();
+      res.send(result);
+    });
   } catch (error) {
     console.log(error);
   }
