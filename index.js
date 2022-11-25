@@ -92,6 +92,13 @@ async function run() {
       res.send({ isSeller: user?.role === "Seller" });
     });
 
+    app.get("/users/seller", verifyJWT, async (req, res) => {
+      const email = req.query.email;
+      const query = { email: email };
+      const result = await usersCollection.findOne(query);
+      res.send(result);
+    });
+
     app.get("/categories", async (req, res) => {
       const query = {};
       const cursor = categories.find(query);
