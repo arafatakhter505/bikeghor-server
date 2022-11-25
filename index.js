@@ -36,7 +36,7 @@ async function run() {
     const productsCollection = client.db("BikeGhor").collection("Products");
 
     const verifySeller = async (req, res, next) => {
-      const decodedEmail = req.deconded.email;
+      const decodedEmail = req.decoded.email;
       const query = { email: decodedEmail };
       const user = await usersCollection.findOne(query);
       if (user?.role !== "Seller") {
@@ -58,7 +58,7 @@ async function run() {
       }
     });
 
-    app.post("/products", async (req, res) => {
+    app.post("/products", verifyJWT, verifySeller, async (req, res) => {
       const product = req.body;
       const result = await productsCollection.insertOne(product);
       res.send(result);
@@ -96,6 +96,13 @@ async function run() {
       const query = {};
       const cursor = categories.find(query);
       const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    app.get("/products", verifyJWT, verifySeller, async (req, res) => {
+      const email = req.query.email;
+      const query = { sellerEmail: email };
+      const result = await productsCollection.find(query).toArray();
       res.send(result);
     });
   } catch (error) {
