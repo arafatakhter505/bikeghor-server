@@ -47,6 +47,16 @@ async function run() {
       next();
     };
 
+    const verifyAdmin = async (req, res, next) => {
+      const decodedEmail = req.decoded.email;
+      const query = { email: decodedEmail };
+      const user = await usersCollection.findOne(query);
+      if (user?.role !== "Admin") {
+        return res.status(403).send({ message: "forebidden access" });
+      }
+      next();
+    };
+
     // create data
     app.post("/users", async (req, res) => {
       const user = req.body;
@@ -111,6 +121,13 @@ async function run() {
       res.send({ isSeller: user?.role === "Seller" });
     });
 
+    app.get("/users/admin/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { email };
+      const user = await usersCollection.findOne(query);
+      res.send({ isAdmin: user?.role === "Admin" });
+    });
+
     app.get("/users/seller", verifyJWT, async (req, res) => {
       const email = req.query.email;
       const query = { email: email };
@@ -154,6 +171,24 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/advertise", async (req, res) => {
+      const query = {};
+      const result = await advertiseCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.get("/sellers", verifyJWT, verifyAdmin, async (req, res) => {
+      const query = { role: "Seller" };
+      const result = await usersCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.get("/buyers", verifyJWT, verifyAdmin, async (req, res) => {
+      const query = { role: "Buyer" };
+      const result = await usersCollection.find(query).toArray();
+      res.send(result);
+    });
+
     // update data
     app.put("/products/booked/:id", verifyJWT, async (req, res) => {
       const product = req.body;
@@ -173,6 +208,24 @@ async function run() {
       res.send(result);
     });
 
+    app.put("/sellers/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const seller = req.body;
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: true };
+      const updateSeller = {
+        $set: {
+          varified: seller.varified,
+        },
+      };
+      const result = await usersCollection.updateOne(
+        filter,
+        updateSeller,
+        options
+      );
+      res.send(result);
+    });
+
     // delete data
     app.delete("/products/:id", verifyJWT, verifySeller, async (req, res) => {
       const email = req.query.email;
@@ -183,6 +236,42 @@ async function run() {
       }
       const filter = { _id: ObjectId(id) };
       const result = await productsCollection.deleteOne(filter);
+      res.send(result);
+    });
+
+    app.delete("/advertise/", verifyJWT, verifySeller, async (req, res) => {
+      const email = req.query.email;
+      const id = req.query.id;
+      const decodedEmail = req.decoded.email;
+      if (email !== decodedEmail) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      const filter = { productId: id };
+      const result = await advertiseCollection.deleteOne(filter);
+      res.send(result);
+    });
+
+    app.delete("/sellers/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const email = req.query.email;
+      const id = req.params.id;
+      const decodedEmail = req.decoded.email;
+      if (email !== decodedEmail) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      const filter = { _id: ObjectId(id) };
+      const result = await usersCollection.deleteOne(filter);
+      res.send(result);
+    });
+
+    app.delete("/buyers/:id", verifyJWT, verifyAdmin, async (req, res) => {
+      const email = req.query.email;
+      const id = req.params.id;
+      const decodedEmail = req.decoded.email;
+      if (email !== decodedEmail) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      const filter = { _id: ObjectId(id) };
+      const result = await usersCollection.deleteOne(filter);
       res.send(result);
     });
   } catch (error) {
