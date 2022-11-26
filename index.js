@@ -1,6 +1,6 @@
 const express = require("express");
 const cors = require("cors");
-const { MongoClient, MongoRuntimeError } = require("mongodb");
+const { MongoClient, MongoRuntimeError, ObjectId } = require("mongodb");
 const jwt = require("jsonwebtoken");
 const app = express();
 const port = process.env.PORT || 5000;
@@ -34,6 +34,7 @@ async function run() {
     const categories = client.db("BikeGhor").collection("Categories");
     const usersCollection = client.db("BikeGhor").collection("Users");
     const productsCollection = client.db("BikeGhor").collection("Products");
+    const ordersCollection = client.db("BikeGhor").collection("Orders");
 
     const verifySeller = async (req, res, next) => {
       const decodedEmail = req.decoded.email;
@@ -61,6 +62,12 @@ async function run() {
     app.post("/products", verifyJWT, verifySeller, async (req, res) => {
       const product = req.body;
       const result = await productsCollection.insertOne(product);
+      res.send(result);
+    });
+
+    app.post("/orders", verifyJWT, async (req, res) => {
+      const order = req.body;
+      const result = await ordersCollection.insertOne(order);
       res.send(result);
     });
 
@@ -121,6 +128,25 @@ async function run() {
       const id = req.params.id;
       const query = { category: id, sold: false };
       const result = await productsCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    // update data
+    app.put("/products/category/:id", verifyJWT, async (req, res) => {
+      const product = req.body;
+      const id = req.params.id;
+      const filter = { _id: ObjectId(id) };
+      const options = { upsert: true };
+      const updateProduct = {
+        $set: {
+          sold: product.sold,
+        },
+      };
+      const result = await productsCollection.updateOne(
+        filter,
+        updateProduct,
+        options
+      );
       res.send(result);
     });
   } catch (error) {
