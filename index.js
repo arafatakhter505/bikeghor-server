@@ -35,6 +35,7 @@ async function run() {
     const usersCollection = client.db("BikeGhor").collection("Users");
     const productsCollection = client.db("BikeGhor").collection("Products");
     const ordersCollection = client.db("BikeGhor").collection("Orders");
+    const advertiseCollection = client.db("BikeGhor").collection("Advertise");
 
     const verifySeller = async (req, res, next) => {
       const decodedEmail = req.decoded.email;
@@ -68,6 +69,17 @@ async function run() {
     app.post("/orders", verifyJWT, async (req, res) => {
       const order = req.body;
       const result = await ordersCollection.insertOne(order);
+      res.send(result);
+    });
+
+    app.post("/advertise", verifyJWT, verifySeller, async (req, res) => {
+      const email = req.query.email;
+      const decodedEmail = req.decoded.email;
+      if (email !== decodedEmail) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      const advertised = req.body;
+      const result = await advertiseCollection.insertOne(advertised);
       res.send(result);
     });
 
