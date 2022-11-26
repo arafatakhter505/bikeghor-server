@@ -131,15 +131,26 @@ async function run() {
       res.send(result);
     });
 
+    app.get("/orders", verifyJWT, async (req, res) => {
+      const email = req.query.email;
+      const decodedEmail = req.decoded.email;
+      if (email !== decodedEmail) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      const query = { email: email };
+      const result = await ordersCollection.find(query).toArray();
+      res.send(result);
+    });
+
     // update data
-    app.put("/products/category/:id", verifyJWT, async (req, res) => {
+    app.put("/products/booked/:id", verifyJWT, async (req, res) => {
       const product = req.body;
       const id = req.params.id;
       const filter = { _id: ObjectId(id) };
       const options = { upsert: true };
       const updateProduct = {
         $set: {
-          sold: product.sold,
+          booked: product.booked,
         },
       };
       const result = await productsCollection.updateOne(
@@ -147,6 +158,19 @@ async function run() {
         updateProduct,
         options
       );
+      res.send(result);
+    });
+
+    // delete data
+    app.delete("/products/:id", verifyJWT, verifySeller, async (req, res) => {
+      const email = req.query.email;
+      const id = req.params.id;
+      const decodedEmail = req.decoded.email;
+      if (email !== decodedEmail) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      const filter = { _id: ObjectId(id) };
+      const result = await productsCollection.deleteOne(filter);
       res.send(result);
     });
   } catch (error) {
