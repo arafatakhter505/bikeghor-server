@@ -5,6 +5,7 @@ const jwt = require("jsonwebtoken");
 const app = express();
 const port = process.env.PORT || 5000;
 require("dotenv").config();
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
 
 // midleware
 app.use(cors());
@@ -36,6 +37,8 @@ async function run() {
     const productsCollection = client.db("BikeGhor").collection("Products");
     const ordersCollection = client.db("BikeGhor").collection("Orders");
     const advertiseCollection = client.db("BikeGhor").collection("Advertise");
+    const wishlistCollection = client.db("BikeGhor").collection("WishList");
+    const paymentsCollection = client.db("BikeGhor").collection("Payments");
 
     const verifySeller = async (req, res, next) => {
       const decodedEmail = req.decoded.email;
@@ -91,6 +94,74 @@ async function run() {
       const advertised = req.body;
       const result = await advertiseCollection.insertOne(advertised);
       res.send(result);
+    });
+
+    app.post("/wishlist", verifyJWT, async (req, res) => {
+      const email = req.query.email;
+      const decodedEmail = req.decoded.email;
+      if (email !== decodedEmail) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      const item = req.body;
+      const query = { productId: item.productId };
+      const findResult = await wishlistCollection.findOne(query);
+      if (findResult) {
+        return res.send({ message: "Allready wishlist have this product" });
+      }
+      const result = await wishlistCollection.insertOne(item);
+      res.send(result);
+    });
+
+    app.post("/create-payment-intent", verifyJWT, async (req, res) => {
+      const product = req.body;
+      const price = product.price;
+      const amount = price * 100;
+      const paymentIntent = await stripe.paymentIntents.create({
+        currency: "usd",
+        amount: amount,
+        payment_method_types: ["card"],
+      });
+      res.send({ clientSecret: paymentIntent.client_secret });
+    });
+
+    app.post("/payments", verifyJWT, async (req, res) => {
+      const payment = req.body;
+      const result = await paymentsCollection.insertOne(payment);
+      const id = payment.productId;
+      const productFilter = { _id: ObjectId(id) };
+      const filter = { productId: id };
+      const updateDoc = {
+        $set: {
+          sold: true,
+        },
+      };
+      const updateOrderDoc = {
+        $set: {
+          paid: true,
+        },
+      };
+      const options = { upsert: true };
+      const updateOrder = await ordersCollection.updateOne(
+        filter,
+        updateOrderDoc,
+        options
+      );
+      const updateProduct = await productsCollection.updateOne(
+        productFilter,
+        updateDoc
+      );
+      const updateAdvertised = await advertiseCollection.updateOne(
+        filter,
+        updateDoc
+      );
+      const deleteWishlist = await wishlistCollection.deleteOne(filter);
+      res.send({
+        result,
+        updateProduct,
+        updateAdvertised,
+        updateOrder,
+        deleteWishlist,
+      });
     });
 
     // read data;
@@ -186,6 +257,20 @@ async function run() {
     app.get("/buyers", verifyJWT, verifyAdmin, async (req, res) => {
       const query = { role: "Buyer" };
       const result = await usersCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.get("/wishlist", verifyJWT, async (req, res) => {
+      const email = req.query.email;
+      const query = { email };
+      const result = await wishlistCollection.find(query).toArray();
+      res.send(result);
+    });
+
+    app.get("/products/:id", verifyJWT, async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: ObjectId(id) };
+      const result = await productsCollection.findOne(query);
       res.send(result);
     });
 
