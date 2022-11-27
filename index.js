@@ -92,6 +92,11 @@ async function run() {
         return res.status(403).send({ message: "forbidden access" });
       }
       const advertised = req.body;
+      const query = { productId: advertised.productId };
+      const findResult = await advertiseCollection.findOne(query);
+      if (findResult) {
+        return res.send({ message: "Allready advetise have this product" });
+      }
       const result = await advertiseCollection.insertOne(advertised);
       res.send(result);
     });
