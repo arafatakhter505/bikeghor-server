@@ -165,6 +165,10 @@ async function run() {
     });
 
     // read data;
+    app.get("/", (req, res) => {
+      res.send("Bike Server Running");
+    });
+
     app.get("/jwt", async (req, res) => {
       const email = req.query.email;
       const query = { email: email };
